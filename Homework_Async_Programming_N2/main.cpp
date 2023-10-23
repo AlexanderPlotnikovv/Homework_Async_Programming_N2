@@ -6,19 +6,19 @@
 std::mutex mx;
 
 template <typename Iterator, typename Function>
-void for_each_own_version(Iterator begin, Iterator end, Function func)
+void for_each_own_version(Iterator begin, Iterator end, Function func, int needed_size)
 {
 	auto size = std::distance(begin, end);
-	std::vector<std::future<void>> future(size);
-	int i = 0;
-	for (auto it = begin; it != end; ++it)
+	if (size <= needed_size)
 	{
-		future[i] = std::async(std::launch::async,func, *it);
-		++i;
+		std::for_each(begin, end, func);
 	}
-	for (auto& fut : future)
+	else
 	{
+		Iterator middle_it = std::next(begin, size / 2);
+		std::future<void> fut = std::async(std::launch::async, for_each_own_version<Iterator, Function>, begin, middle_it, func, needed_size);
 		fut.get();
+		for_each_own_version(middle_it, end, func, needed_size);
 	}
 }
 
@@ -29,6 +29,6 @@ int main()
 		std::lock_guard<std::mutex> lock(mx);
 		std::cout << n << " "; 
 	};
-	for_each_own_version(vec.begin(), vec.end(), f);
+	for_each_own_version(vec.begin(), vec.end(), f, 2);
 	return 0;
 }
